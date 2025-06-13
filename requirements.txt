@@ -1,0 +1,5 @@
+torch
+requests
+python-dotenv
+transformers
+openai
