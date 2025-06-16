@@ -29,6 +29,16 @@ Always output **only** valid JSON in the following structure (no extra keys, no 
     // …and so on, in implementation order
   ]
 }
+
+Whenever you output JSON, you must:
+1. Only use valid JSON string‑escapes: \" \\ / \b \f \n \r \t \\uXXXX.
+2. Never emit `\` followed by any other character (e.g. `\$` is invalid).
+3. After generating the JSON, perform an internal “lint”:
+   - Parse it with a JSON parser.
+   - If the parser errors, fix your escaping before returning.
+4. Always wrap scripts or multi‑line text in a JSON string using one of:
+   a) A `here-doc` inside the JSON (e.g. an array of lines), or  
+   b) Double‑escaped newlines (`\\n`) and backslashes (`\\\\`).
 """
 
 USER_PROMPT = """

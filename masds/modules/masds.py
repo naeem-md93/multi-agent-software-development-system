@@ -58,9 +58,9 @@ class MultiAgentSoftwareDevelopmentSystem:
         os.makedirs(self.project_dir)
         os.chdir(self.project_dir)
         subprocess.call(["git", "init"])
-        subprocess.call(["git", "config", "--global", "init.defaultBranch", "main"])
         subprocess.call(["git", "config", "--global", "user.name", "'Naeem Mohammadi'"])
         subprocess.call(["git", "config", "--global", "user.email", "'naeem.mohammadi1993@gmail.com'"])
+        subprocess.call(["git", "checkout", "-b", "main"])
 
     def break_down_a_project(self, project_name: str, project_description: str) -> dict:
 
@@ -122,7 +122,7 @@ class MultiAgentSoftwareDevelopmentSystem:
         return current_task
 
     def prepare_the_development_environment(self, task: dict) -> None:
-        subprocess.call(["git", "checkout", "-B", task["branch_name"]])
+        subprocess.call(["git", "checkout", "-b", task["branch_name"]])
 
     def implement_a_task(self, task: dict):
 
@@ -222,8 +222,8 @@ class MultiAgentSoftwareDevelopmentSystem:
         required_files += "=============\n"
 
         response = utils.rag_utils.get_azure_response(
-            system_prompt=prompts.software_developer.SYSTEM_PROMPT,
-            user_prompt=prompts.software_developer.USER_PROMPT,
+            system_prompt=prompts.qa_engineer.SYSTEM_PROMPT,
+            user_prompt=prompts.qa_engineer.USER_PROMPT,
             system_prompt_kwargs=None,
             user_prompt_kwargs={
                 "task_title": task["task_title"],
@@ -326,12 +326,15 @@ class MultiAgentSoftwareDevelopmentSystem:
 
         for d in file_changes:
 
-            try:
+            if os.path.isfile(d["path"]):
                 d_content = open(d["path"], "r").read()
                 d_type = "file"
-            except IsADirectoryError:
+            elif os.path.isdir(d["path"]):
                 d_content = f"Directory containing:\n{os.listdir(d['path'])}"
                 d_type = "directory"
+            else:
+                print(d["path"])
+                exit(500)
 
             self.database[d["path"]] = d_content
 
@@ -339,7 +342,7 @@ class MultiAgentSoftwareDevelopmentSystem:
                 "task_id": task_id,
                 "task_title": task_title,
                 "branch_name": task_branch_name,
-                "path": d["file_path"],
+                "path": d["path"],
                 "type": d_type,
                 "change_type": d["change_type"],
                 "explanation": d["explanation"],
@@ -462,8 +465,28 @@ class MultiAgentSoftwareDevelopmentSystem:
 
         return current_task
 
-    def merge_the_development_environment(self, branch_name: str):
-        pass
+    def merge_the_development_environment(self, task: dict):
+
+        for change in task["developer_file_changes"]:
+            if change["change_type"] == "deleted":
+                subprocess.call(["git", "rm", change["path"]])
+            else:  # created or modified
+                subprocess.call(["git", "add", change["path"]])
+
+        for change in task["tester_file_changes"]:
+            if change["change_type"] == "deleted":
+                subprocess.call(["git", "rm", change["path"]])
+            else:  # created or modified
+                subprocess.call(["git", "add", change["path"]])
+
+
+        subprocess.call(["git", "commit", "-m", task["commit_message"]])
+
+        # Switch to main branch
+        subprocess.call(["git", "checkout", "main"])
+
+        # Merge the feature branch into main
+        subprocess.call(["git", "merge", "--no-ff", task["branch_name"]])
 
     def develop_a_project(self, project_name: str, project_description: str, max_iter: int = 10) -> None:
 
@@ -471,14 +494,14 @@ class MultiAgentSoftwareDevelopmentSystem:
 
         tasks = self.break_down_a_project(project_name, project_description)
 
-        t = tqdm(tasks)
-        for current_task in t:
+        t = tqdm(enumerate(tasks))
+        for iii, current_task in t:
             current_task = self.assign_a_task(current_task)
 
             self.prepare_the_development_environment(current_task)
 
             for idx in range(max_iter):
-                t.set_description_str(f"({idx + 1}/{max_iter}) - {current_task['task_title']} | status: {current_task['task_status']}")
+                t.set_description_str(f"Task ({iii+1}/{len(tasks)}) | Try ({idx + 1}/{max_iter}) - {current_task['task_title']}")
 
                 current_task = self.implement_a_task(current_task)
 
@@ -508,8 +531,4 @@ class MultiAgentSoftwareDevelopmentSystem:
 
             assert current_task["task_status"] == "done", f"could not finish the task in {max_iter} iterations!!!"
 
-            self.merge_the_development_environment(
-                current_task["branch_name"],
-                current_task["commit_message"],
-                current_task["developer_file_changes"] + current_task["tester_file_changes"]
-            )
+            self.merge_the_development_environment(current_task)

@@ -1,8 +1,9 @@
-from  . import project_manager, tech_lead, software_developer
+from  . import project_manager, qa_engineer, software_developer, tech_lead
 
 
 __all__ = [
     "project_manager",
+    "qa_engineer",
+    "software_developer",
     "tech_lead",
-    "software_developer"
 ]

@@ -25,9 +25,9 @@ def commit_and_merge_changes(branch_name: str, commit_message: str, file_changes
         # Stage all changed files
         for change in file_changes:
             if change["change_type"] == "deleted":
-                run(["git", "rm", change["file_path"]])
+                run(["git", "rm", change["path"]])
             else:  # created or modified
-                run(["git", "add", change["file_path"]])
+                run(["git", "add", change["path"]])
 
         # Commit the changes
         run(["git", "commit", "-m", commit_message])

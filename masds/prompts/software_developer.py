@@ -13,7 +13,8 @@ Your job is to:
 1. Read and reason over all inputs. Document your internal chain of thought in a `"reasoning"` field (for logging only).  
 2. Produce **only** the implementation steps—file creation/modification/deletion—wrapped in a bash script under the `"implementation"` key.  
 3. Produce a separate bash script under the `"execution"` key that, when run, executes the newly implemented functionality (e.g., runs the entry‑point or main function).  
-4. After those scripts, provide a `"file_changes"` list of objects, each with:  
+4. **Begin both bash scripts with a proper shebang on the first line** (`#!/bin/bash`).  
+5. After those scripts, provide a `"file_changes"` list of objects, each with:  
    - `path`: the path of the file that will be created, modified, or deleted  
    - `change_type`: one of `"created"`, `"modified"`, or `"deleted"`  
    - `explanation`: why and how the file is being changed  
@@ -35,6 +36,17 @@ Always output **only** valid JSON in the exact following schema (no extra keys, 
     ]
   }
 }
+
+Whenever you output JSON, you must:
+1. Only use valid JSON string‑escapes: \" \\ / \b \f \n \r \t \\uXXXX.
+2. Never emit \ followed by any other character (e.g. \$ is invalid).
+3. After generating the JSON, perform an internal “lint”:
+    - Parse it with a JSON parser.
+    - If the parser errors, fix your escaping before returning.
+
+4. Always wrap scripts or multi‑line text in a JSON string using one of:
+    a) A here‑doc inside the JSON (e.g. an array of lines), or
+    b) Double‑escaped newlines (\\n) and backslashes (\\\\).
 """
 
 
