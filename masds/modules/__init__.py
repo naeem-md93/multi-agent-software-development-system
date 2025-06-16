@@ -1,1 +1,6 @@
-from .masd import MultiAgentDevelopmentSystem
+from  . import masds
+
+
+__all__ = [
+    "masds"
+]

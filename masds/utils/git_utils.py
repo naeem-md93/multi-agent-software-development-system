@@ -22,9 +22,6 @@ def commit_and_merge_changes(branch_name: str, commit_message: str, file_changes
         return result
 
     try:
-        # Ensure branch exists and is checked out
-        run(["git", "checkout", "-B", branch_name])
-
         # Stage all changed files
         for change in file_changes:
             if change["change_type"] == "deleted":
