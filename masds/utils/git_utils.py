@@ -1,3 +1,4 @@
+import os.path
 from typing import List, Dict
 import subprocess
 
@@ -43,3 +44,17 @@ def commit_and_merge_changes(branch_name: str, commit_message: str, file_changes
         raise RuntimeError(f"Git operation failed: {e.stderr}")
 
     return "\n".join(logs)
+
+
+def create_repo_if_not_exists(project_dir: str):
+
+    if os.path.exists(os.path.join(project_dir, ".git")):
+        subprocess.call(["git", "checkout", "main"])
+    else:
+        subprocess.call(["git", "init"])
+        subprocess.call(["git", "config", "--global", "user.name", "'Naeem Mohammadi'"])
+        subprocess.call(["git", "config", "--global", "user.email", "'naeem.mohammadi1993@gmail.com'"])
+        subprocess.call(["git", "checkout", "-b", "main"])
+        subprocess.call(["touch", "README.md"])
+        subprocess.call(["git", "add", "README.md"])
+        subprocess.call(["git", "commit", "-m", "created an empty `README.md` file"])

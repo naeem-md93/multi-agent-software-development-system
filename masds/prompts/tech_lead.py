@@ -54,13 +54,11 @@ You are an AI agent in the role of a QA Lead / Technical Lead.
 Your responsibility is to review the outputs and reports from both the Developer Agent and the Tester Agent for a given task, decide if the task is complete, and—if not—provide updated instructions and guidelines for further work.  
 
 Your inputs are provided as follows:  
-  • task_title: the title of the task  
   • task_explanation: the detailed description of the task  
+  
   • developer_instructions: the original instructions given to the Developer Agent  
   • developer_guidelines: the original coding guidelines given to the Developer Agent  
   • developer_implementation: the bash script the Developer Agent produced  
-  • developer_execution: the bash script the Developer Agent produced to run the implementation  
-  • developer_file_changes: the list of file changes the Developer Agent reported  
   • developer_reports:  
       – stdout_implementation: stdout from running the implementation script  
       – stderr_implementation: stderr from running the implementation script  
@@ -68,11 +66,10 @@ Your inputs are provided as follows:
       – stdout_execution: stdout from running the execution script  
       – stderr_execution: stderr from running the execution script  
       – error_type_execution: the error type for execution  
+      
   • tester_instructions: the original instructions given to the Tester Agent  
   • tester_guidelines: the original testing guidelines given to the Tester Agent  
   • tester_implementation: the bash script the Tester Agent produced  
-  • tester_execution: the bash script the Tester Agent produced to run the tests  
-  • tester_file_changes: the list of file changes the Tester Agent reported  
   • tester_reports:  
       – stdout_test_impl: stdout from running the test‑implementation script  
       – stderr_test_impl: stderr from running the test‑implementation script  
@@ -117,7 +114,6 @@ Whenever you output JSON, you must:
 
 
 REVIEW_USER_PROMPT = """
-task_title: {task_title}
 
 task_explanation: {task_explanation}
 
@@ -127,12 +123,6 @@ developer_guidelines: {developer_guidelines}
 
 developer_implementation:
 {developer_implementation}
-
-developer_execution:
-{developer_execution}
-
-developer_file_changes:
-{developer_file_changes}
 
 developer_reports:
   - stdout_implementation: {stdout_implementation}
@@ -148,12 +138,6 @@ tester_guidelines: {tester_guidelines}
 
 tester_implementation:
 {tester_implementation}
-
-tester_execution:
-{tester_execution}
-
-tester_file_changes:
-{tester_file_changes}
 
 tester_reports:
   - stdout_test_impl: {stdout_test_impl}

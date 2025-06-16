@@ -5,19 +5,14 @@ def main():
     print("Multi-Agent Software Development System")
     print("=" * 50)
 
-    project_name = "simple_calculator"
+    project_directory = "coding_assistant"
     project_description = """
-    The purpose of this project is to develop a simple command-line calculator using Python that can perform basic arithmetic operations such as addition, subtraction, multiplication, and division. This tool will be used for educational purposes or lightweight local calculations.
-    It will be run on the Ubuntu OS.
-    The calculator will be a terminal-based Python application that accepts user input for two numbers and an operation, then displays the result. It will support:
-    - Addition (+)
-    - Subtraction (-)
-    - Multiplication (*)
-    - Division (/)
+    I want you to write an AI based Coding assistant using Python. I want it to index every file in the project so it understands the whole project.
+    Also, I want it to request input from user for new features to implement, suggest fix for bugs and new features and improvements.
     """
 
     system = MultiAgentSoftwareDevelopmentSystem()
-    system.develop_a_project(project_name=project_name, project_description=project_description)
+    system.develop_a_project(project_directory=project_directory, project_description=project_description)
 
 
 if __name__ == "__main__":
