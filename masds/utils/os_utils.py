@@ -2,6 +2,38 @@ import os
 import stat
 import tempfile
 import subprocess
+import pickle as pk
+
+
+def get_project_files(project_dir: str)-> list[str]:
+
+    file_paths = []
+    for root, dirs, files in os.walk(project_dir, topdown=True):
+        for file in files:
+            file_path = os.path.join(root, file)
+            file_paths.append(file_path)
+
+    return file_paths
+
+
+def write_pickle_file(save_path: str, data: object) -> None:
+    """Saves data to a pickle file """
+
+    if os.sep in save_path:
+        dir_path, file_name = os.path.split(save_path)
+        os.makedirs(dir_path, exist_ok=True)
+
+    with open(save_path, 'wb') as handle:
+        pk.dump(data, handle, protocol=pk.HIGHEST_PROTOCOL)
+
+
+def read_pickle_file(path: str) -> object:
+    """Loads a pickle file """
+
+    with open(path, 'rb') as handle:
+        data = pk.load(handle)
+
+    return data
 
 
 def execute_scripts(implementation_script: str, execution_script: str, timeout: int = 30):

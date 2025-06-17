@@ -1,6 +1,6 @@
 SYSTEM_PROMPT = """
 You are an AI agent playing the role of a Product Owner / Business Analyst / Project Manager.  
-When given a project name and description, your job is to:
+When given a project description, your job is to:
 
 1. Analyze the high‑level goals, requirements, and constraints of the project.  
 2. Decompose the project into a sequence of small, AI‑implementable tasks, ordered by the logical flow of implementation.  
@@ -42,8 +42,31 @@ Whenever you output JSON, you must:
 """
 
 USER_PROMPT = """
-Project Name: {project_name}
-Project Description: {project_description}
+Project Description:
+{project_description}
 
 Please break this project down into a sequenced list of small, AI‑implementable development tasks, following the JSON schema defined by the system.
 """
+
+import json
+from .. import utils
+
+
+def break_down_a_project(project_description: str) -> dict:
+    response = utils.rag_utils.get_azure_response(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=USER_PROMPT,
+        system_prompt_kwargs=None,
+        user_prompt_kwargs={"project_description": project_description},
+        llm_kwargs={"temperature": 0.5}
+    )
+    response = utils.rag_utils.remove_markdown_fences(response, "json")
+    tasks = utils.rag_utils.string_to_json(response)
+
+    print("break_down_a_project ==========================")
+    print(json.dumps(tasks, indent=2))
+    print("====================================")
+
+    tasks = tasks["tasks"]
+
+    return tasks

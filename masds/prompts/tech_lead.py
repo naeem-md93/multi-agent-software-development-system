@@ -2,7 +2,7 @@ ASSIGNMENT_SYSTEM_PROMPT = """
 You are an AI Task Dispatcher playing the role of a Tech Lead / Engineering Manager in a multi‑agent development system.  
 Your responsibility is to take as input:  
   1. An array of file change history objects (possibly empty) that record which files have been created, modified, or deleted so far and why.  
-  2. A single task’s title and explanation (derived from the Product Owner’s breakdown).  
+  2. A single task’s explanation (derived from the Product Owner’s breakdown).  
 
 As the Tech Lead, you must:  
   • Review the file change history to identify and surface relevant code artifacts for this task.  
@@ -42,8 +42,8 @@ File Changes History:
 {file_changes_history}
 <END OF FILE CHANGES HISTORY>
 
-Task Title: {task_title}
-Task Explanation: {task_explanation}
+Task Explanation:
+{task_explanation}
 
 Please produce the JSON response following the schema defined in the system prompt.
 """
@@ -149,3 +149,150 @@ tester_reports:
 
 Please generate your JSON response following the schema defined in the system prompt.
 """
+
+import json
+from .. import utils
+
+
+def assign_a_task(changes_history: list[dict], task: dict):
+
+    response = utils.rag_utils.get_azure_response(
+        system_prompt=ASSIGNMENT_SYSTEM_PROMPT,
+        user_prompt=ASSIGNMENT_USER_PROMPT,
+        system_prompt_kwargs=None,
+        user_prompt_kwargs={
+            "file_changes_history": changes_history,
+            "task_explanation": task["task_explanation"]
+        },
+        llm_kwargs={"temperature": 0.5}
+    )
+    response = utils.rag_utils.remove_markdown_fences(response, "json")
+    current_task = utils.rag_utils.string_to_json(response)
+
+    print("assign_a_task ==========================")
+    print(json.dumps(current_task, indent=2))
+    print("====================================")
+
+    current_task = {
+        "task_id": task["task_id"],
+        "task_title": task["task_title"],
+        "task_explanation": task["task_explanation"],
+        "task_status": "in-progress",
+
+        "branch_name": current_task["task"]["branch_name"],
+
+        "developer_instructions": current_task["task"]["developer_instructions"],
+        "developer_guidelines": current_task["task"]["developer_guidelines"],
+        "developer_required_files": current_task["task"]["developer_required_files"],
+
+        "tester_instructions": current_task["task"]["tester_instructions"],
+        "tester_guidelines": current_task["task"]["tester_guidelines"],
+        "tester_required_files": current_task["task"]["tester_required_files"],
+    }
+
+    return current_task
+
+
+
+def review_a_task(task):
+
+    response = utils.rag_utils.get_azure_response(
+        system_prompt=REVIEW_SYSTEM_PROMPT,
+        user_prompt=REVIEW_USER_PROMPT,
+        system_prompt_kwargs=None,
+        user_prompt_kwargs={
+            "task_explanation": task["task_explanation"],
+
+            "developer_instructions": task["developer_instructions"],
+            "developer_guidelines": task["developer_guidelines"],
+            "developer_implementation": task["developer_implementation"],
+
+            "stdout_implementation": task["developer_implementation_stdout_report"],
+            "stderr_implementation": task["developer_implementation_stderr_report"],
+            "error_type_implementation": task["developer_implementation_error_type_report"],
+
+            "stdout_execution": task["developer_execution_stdout_report"],
+            "stderr_execution": task["developer_execution_stderr_report"],
+            "error_type_execution": task["developer_execution_error_type_report"],
+
+            "tester_instructions": task["tester_instructions"],
+            "tester_guidelines": task["tester_guidelines"],
+            "tester_implementation": task["tester_implementation"],
+
+            "stdout_test_impl": task["tester_implementation_stdout_report"],
+            "stderr_test_impl": task["tester_implementation_stderr_report"],
+            "error_type_test_impl": task["tester_implementation_error_type_report"],
+            "stdout_test_exec": task["tester_execution_stdout_report"],
+            "stderr_test_exec": task["tester_execution_stderr_report"],
+            "error_type_test_exec": task["tester_execution_error_type_report"],
+        },
+        llm_kwargs={"temperature": 0.5}
+    )
+
+    response = utils.rag_utils.remove_markdown_fences(response, "json")
+    response = utils.rag_utils.string_to_json(response)
+
+    print("review_a_task ==========================")
+    print(json.dumps(response, indent=2))
+    print("====================================")
+
+    if response["task"]["developer_instructions"] != "":
+        developer_instructions = response["task"]["developer_instructions"]
+    else:
+        developer_instructions = task["developer_instructions"]
+
+    if response["task"]["developer_guidelines"] != "":
+        developer_guidelines = response["task"]["developer_guidelines"]
+    else:
+        developer_guidelines = task["developer_guidelines"]
+
+    if response["task"]["tester_instructions"] != "":
+        tester_instructions = response["task"]["tester_instructions"]
+    else:
+        tester_instructions = task["tester_instructions"]
+
+    if response["task"]["tester_guidelines"] != "":
+        tester_guidelines = response["task"]["tester_guidelines"]
+    else:
+        tester_guidelines = task["tester_guidelines"]
+
+
+    current_task = {
+        "task_id": task["task_id"],
+        "task_title": task["task_title"],
+        "task_explanation": task["task_explanation"],
+        "task_status": response["task"]["task_status"],
+        "commit_message": response["task"]["commit_message"],
+
+        "branch_name": task["branch_name"],
+
+        "developer_instructions": developer_instructions,
+        "developer_guidelines": developer_guidelines,
+        "developer_required_files": task["developer_required_files"],
+        "developer_implementation": task["developer_implementation"],
+        "developer_execution": task["developer_execution"],
+        "developer_file_changes": task["developer_file_changes"],
+
+        "developer_implementation_stdout_report": task["developer_implementation_stdout_report"],
+        "developer_implementation_stderr_report": task["developer_implementation_stderr_report"],
+        "developer_implementation_error_type_report": task["developer_implementation_error_type_report"],
+        "developer_execution_stdout_report": task["developer_execution_stdout_report"],
+        "developer_execution_stderr_report": task["developer_execution_stderr_report"],
+        "developer_execution_error_type_report": task["developer_execution_error_type_report"],
+
+        "tester_instructions": tester_instructions,
+        "tester_guidelines": tester_guidelines,
+        "tester_required_files": task["tester_required_files"],
+        "tester_implementation": task["tester_implementation"],
+        "tester_execution": task["tester_execution"],
+        "tester_file_changes": task["tester_file_changes"],
+
+        "tester_implementation_stdout_report": task["tester_implementation_stdout_report"],
+        "tester_implementation_stderr_report": task["tester_implementation_stderr_report"],
+        "tester_implementation_error_type_report": task["tester_implementation_error_type_report"],
+        "tester_execution_stdout_report": task["tester_execution_stdout_report"],
+        "tester_execution_stderr_report": task["tester_execution_stderr_report"],
+        "tester_execution_error_type_report": task["tester_execution_error_type_report"],
+    }
+
+    return current_task
