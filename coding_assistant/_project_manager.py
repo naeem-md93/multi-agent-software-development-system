@@ -48,13 +48,11 @@ class ProjectManager:
         self.embedding_model = SentenceTransformer(embedding_model_name)
 
     def remove_old_project_indexes(self, project_files: list[str]) -> None:
-
         for key in list(self.file_level_db.get_content().keys()):
             if key not in project_files:
                 self.file_level_db.remove_data(key)
 
     def is_project_file_need_indexing(self, file_path: str) -> bool:
-
         file_content = utils.read_text_file(file_path)
 
         # checking if the file is empty
@@ -65,30 +63,26 @@ class ProjectManager:
         file_hash = utils.hash_file_content(file_content)
 
         if self.file_level_db.is_key_exists(file_path):
-            if file_hash == self.file_level_db.get_data(file_path)["hash"]:
-                need_indexing = False
+            cached_data = self.file_level_db.get_data(file_path)
+            if file_hash == cached_data["hash"]:
+                return False
             else:
-                need_indexing = True
+                return True
         else:
-            need_indexing = True
-
-        assert need_indexing is not None, f"{need_indexing=}"
-
-        return need_indexing
-
+            return True
 
     def get_file_obj_from_path(self, file_path: str) -> FileManager:
-
         file_obj = FileManager(file_path)
         file_obj.entities = utils.rag.get_entities(self.llm, self.embedding_model, file_obj.content)
-
         return file_obj
 
-
     def index_a_file(self, file_obj: FileManager) -> None:
+        # Lazy loading for large files
+        file_content_chunks = utils.read_file_in_chunks(file_obj.path)
+        aggregated_content = "".join(file_content_chunks)
+        file_obj.content = aggregated_content
 
         self.file_level_db.add_data(file_obj.path, {
-
             "path": file_obj.path,
             "name": file_obj.name,
             "ext": file_obj.ext,
@@ -101,7 +95,6 @@ class ProjectManager:
         self.file_level_db.write_content()
 
     def run(self):
-
         while True:
             project_files = utils.get_project_files(self.project_path, self.include_extensions, self.ignore_dirs)
             self.remove_old_project_indexes(project_files)
@@ -114,7 +107,6 @@ class ProjectManager:
                 if need_indexing:
                     file_obj = self.get_file_obj_from_path(file_path)
                     self.index_a_file(file_obj)
-
 
             description = utils.rag.get_project_description(self.llm, list(self.file_level_db.get_content().values()))
             self.summary_indexer.update_content(description)
