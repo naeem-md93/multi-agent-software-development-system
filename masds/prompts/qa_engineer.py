@@ -1,68 +1,61 @@
 SYSTEM_PROMPT = """
-You are an AI agent in the role of a QA Engineer / Test Engineer.  
-Your inputs are provided as follows:  
-  • task_title: a short title of the task under test  
-  • task_explanation: a detailed description of what the task implements  
-  • instructions: the Tech Lead’s step‑by‑step testing instructions  
-  • guidelines: the Tech Lead’s testing conventions and best practices to follow  
-  • developer_implementation: the bash script string that the Developer Agent produced to implement the task  
-  • required_files: a list of objects, each with:  
-      – file_path: the path to an existing file or resource  
-      – file_contents: the current contents of that file  
+You are TestAgent‑Bot, an AI agent in the role of QA Engineer / Test Engineer in a multi‑agent development system.
 
-Your job is to:  
-1. Read and reason over all inputs. Document your internal chain of thought in a `"reasoning"` field (for logging only).  
-2. Produce **only** the test implementation—creating/modifying/deleting test files—wrapped in a bash script under the `"implementation"` key.  
-3. Produce a separate bash script under the `"execution"` key that, when run, executes the test suite (e.g., via `pytest`, `npm test`, or another runner).  
-4. **Start each generated bash script with the line `#!/bin/bash`** so that it will execute correctly.  
-5. After those scripts, provide a `"file_changes"` list of objects, each with:  
-   - `path`: the path of the test file to be created, modified, or deleted  
-   - `change_type`: one of `"created"`, `"modified"`, or `"deleted"`  
-   - `explanation`: why and how the test file is being changed  
+Your inputs are:
+  • task_title: the task’s short title  
+  • task_explanation: what the task is supposed to implement  
+  • instructions: the Tech Lead’s step‑by‑step testing plan  
+  • guidelines: the Tech Lead’s testing best practices  
+  • developer_implementation: the bash script the Developer Agent produced  
+  • required_files: an array of objects, each with:
+      – file_path: path to an existing file  
+      – file_contents: current contents of that file  
 
-Always output **only** valid JSON in the exact following schema (no extra keys, no comments outside JSON):  
-```json
-{
-  "reasoning": "<your internal reasoning here>",
-  "tester": {
-    "implementation": "<bash script that creates/modifies test files>",
-    "execution": "<bash script that runs the test suite>",
-    "file_changes": [
-      {
-        "path": "<path/to/test_file.ext>",
-        "change_type": "created|modified|deleted",
-        "explanation": "<why this test file is created/modified/deleted>"
-      }
-      // …additional file changes
-    ]
-  }
-}
+Your jobs:
 
-Whenever you output JSON, you must:
-1. Only use valid JSON string‑escapes: \" \\ / \b \f \n \r \t \\uXXXX.
-2. Never emit \ followed by any other character (e.g. \$ is invalid).
-3. After generating the JSON, perform an internal “lint”:
-  • Parse it with a JSON parser.
-  • If the parser errors, fix your escaping before returning.
-4. Always wrap scripts or multi‑line text in a JSON string using one of:
-    a) A here‑doc inside the JSON (e.g. an array of lines), or
-    b) Double‑escaped newlines (\\n) and backslashes (\\\\).
+1. **Internal reasoning**  
+   - Analyze all inputs and record your thought process in a top‑level `"reasoning"` field (for logging only).
+
+2. **Test implementation script**  
+   - Under `"implementation"`, output a bash script that creates or updates test files to verify the developer’s work according to the testing plan.  
+   - Begin with `#!/bin/bash` on the first line.
+
+3. **Test execution script**  
+   - Under `"execution"`, output a bash script that runs the complete test suite (e.g., `pytest`, `npm test`, etc.).  
+   - Also begin with `#!/bin/bash`.
+
+4. **Output format**  
+   - **Only** valid JSON, following exactly this schema:
+     ```json
+     {
+       "reasoning": "<internal reasoning>",
+       "tester": {
+         "implementation": "<bash script>",
+         "execution": "<bash script>",
+       }
+     }
+     ```
+    - Internally lint your JSON before returning.  
+    - Wrap multi‑line scripts with properly escaped newlines (`\\n`) or a here‑doc style if supported.
 """
 
 USER_PROMPT = """
 Task Title: {task_title}
 
-Task Explanation: {task_explanation}
+Task Explanation:
+{task_explanation}
 
-Testing Instructions: {instructions}
+Testing Instructions:
+{instructions}
 
-Testing Guidelines: {guidelines}
-
-Developer Implementation:
-{developer_implementation}
+Testing Guidelines:
+{guidelines}
 
 Required Files:
 {required_files}
+
+Developer Implementation:
+{developer_implementation}
 
 Please generate your JSON response following the schema defined in the system prompt.
 """
@@ -74,12 +67,14 @@ from .. import utils
 
 def implement_a_test(database: dict, task: dict):
 
-    required_files = "\n==========\n"
-    for x in task["tester_required_files"]:
-        required_files += f"File Path: {x}\n"
-        required_files += f"File Contents:\n{database[x]}\n"
-        required_files += "--------------\n"
-    required_files += "=============\n"
+    text = "----------\n"
+    for i, x in enumerate(task["developer_required_files"]):
+        d_type = "File" if database[x]["type"] == "file" else "Directory"
+
+        text += f"{d_type} {i + 1} Path: {x}\n"
+        text += f"{d_type} {i + 1} Contents:\n{database[x]['contents']}\n"
+        text += "----------\n"
+    print(text)
 
     response = utils.rag_utils.get_azure_response(
         system_prompt=SYSTEM_PROMPT,
@@ -91,7 +86,7 @@ def implement_a_test(database: dict, task: dict):
             "instructions": task["tester_instructions"],
             "guidelines": task["tester_guidelines"],
             "developer_implementation": task["developer_implementation"],
-            "required_files": required_files
+            "required_files": text
         },
         llm_kwargs={"temperature": 0.5}
     )
@@ -109,35 +104,31 @@ def implement_a_test(database: dict, task: dict):
         "task_explanation": task["task_explanation"],
         "task_status": task["task_status"],
 
-        "branch_name": task["branch_name"],
-
         "developer_instructions": task["developer_instructions"],
         "developer_guidelines": task["developer_guidelines"],
         "developer_required_files": task["developer_required_files"],
         "developer_implementation": task["developer_implementation"],
-        "developer_execution": task["developer_execution"],
-        "developer_file_changes": task["developer_file_changes"],
 
         "developer_implementation_stdout_report": task["developer_implementation_stdout_report"],
         "developer_implementation_stderr_report": task["developer_implementation_stderr_report"],
         "developer_implementation_error_type_report": task["developer_implementation_error_type_report"],
-        "developer_execution_stdout_report": task["developer_execution_stdout_report"],
-        "developer_execution_stderr_report": task["developer_execution_stderr_report"],
-        "developer_execution_error_type_report": task["developer_execution_error_type_report"],
 
         "tester_instructions": task["tester_instructions"],
         "tester_guidelines": task["tester_guidelines"],
         "tester_required_files": task["tester_required_files"],
         "tester_implementation": response["tester"]["implementation"],
         "tester_execution": response["tester"]["execution"],
-        "tester_file_changes": response["tester"]["file_changes"],
-
     }
+
     return current_task
 
 
 def execute_tester_codes(task):
-    reports = utils.os_utils.execute_scripts(task["tester_implementation"], task["tester_execution"])
+    reports = {
+        "implementation": utils.os_utils.run_script(task["tester_implementation"], 30),
+        "execution": utils.os_utils.run_script(task["tester_execution"], 30),
+
+    }
 
     print("tester implementation reports ==========================")
     print(json.dumps(reports, indent=2))
@@ -149,28 +140,20 @@ def execute_tester_codes(task):
         "task_explanation": task["task_explanation"],
         "task_status": task["task_status"],
 
-        "branch_name": task["branch_name"],
-
         "developer_instructions": task["developer_instructions"],
         "developer_guidelines": task["developer_guidelines"],
         "developer_required_files": task["developer_required_files"],
         "developer_implementation": task["developer_implementation"],
-        "developer_execution": task["developer_execution"],
-        "developer_file_changes": task["developer_file_changes"],
 
         "developer_implementation_stdout_report": task["developer_implementation_stdout_report"],
         "developer_implementation_stderr_report": task["developer_implementation_stderr_report"],
         "developer_implementation_error_type_report": task["developer_implementation_error_type_report"],
-        "developer_execution_stdout_report": task["developer_execution_stdout_report"],
-        "developer_execution_stderr_report": task["developer_execution_stderr_report"],
-        "developer_execution_error_type_report": task["developer_execution_error_type_report"],
 
         "tester_instructions": task["tester_instructions"],
         "tester_guidelines": task["tester_guidelines"],
         "tester_required_files": task["tester_required_files"],
         "tester_implementation": task["tester_implementation"],
         "tester_execution": task["tester_execution"],
-        "tester_file_changes": task["tester_file_changes"],
 
         "tester_implementation_stdout_report": reports["implementation"]["stdout"],
         "tester_implementation_stderr_report": reports["implementation"]["stderr"],

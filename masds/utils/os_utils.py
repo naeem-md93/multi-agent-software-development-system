@@ -1,19 +1,39 @@
+from typing import List, Dict, Any, Tuple
 import os
 import stat
+import hashlib
 import tempfile
 import subprocess
 import pickle as pk
 
 
-def get_project_files(project_dir: str)-> list[str]:
+def get_project_dirs_files(project_dir: str, ignore_dirs: List[str], ignore_indexes: List[str]) -> Tuple[List[str], Dict[str, Any]]:
 
     file_paths = []
-    for root, dirs, files in os.walk(project_dir, topdown=True):
-        for file in files:
-            file_path = os.path.join(root, file)
-            file_paths.append(file_path)
+    dir_paths = {}
 
-    return file_paths
+    # 1) Collect all matching file paths
+    for root, dirs, files in os.walk(project_dir, topdown=True):
+        # skip unwanted directories
+
+        dirs[:] = [d for d in dirs if d not in ignore_dirs]
+
+        dir_files = []
+        for filename in files:
+            full_path = os.path.join(root, filename)
+            _, ext = os.path.splitext(filename)
+            if ext in ignore_indexes:
+                continue
+            file_paths.append(full_path)
+            dir_files.append(full_path)
+
+        if root != os.getcwd():
+            dir_paths[root] = dir_files + [os.path.join(root, x) for x in dirs]
+
+    dir_paths = sorted(dir_paths.items(), key=lambda x: len(x[0]), reverse=True)
+    dir_paths = {x[0]: x[1] for x in dir_paths}
+
+    return file_paths, dir_paths
 
 
 def write_pickle_file(save_path: str, data: object) -> None:
@@ -27,6 +47,13 @@ def write_pickle_file(save_path: str, data: object) -> None:
         pk.dump(data, handle, protocol=pk.HIGHEST_PROTOCOL)
 
 
+def hash_file_content(content: str) -> str:
+    content = content.encode("utf-8")
+    content = hashlib.md5(content).hexdigest()
+
+    return content
+
+
 def read_pickle_file(path: str) -> object:
     """Loads a pickle file """
 
@@ -36,63 +63,42 @@ def read_pickle_file(path: str) -> object:
     return data
 
 
-def execute_scripts(implementation_script: str, execution_script: str, timeout: int = 30):
-    """
-    Executes the given implementation and execution bash scripts sequentially,
-    captures outputs/errors, and handles potential infinite loops by enforcing a timeout.
+def run_script(script_content: str, timeout: int):
+    # Create a temp file for the script
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.sh') as tmp:
+        tmp.write(script_content.encode())
+        tmp_path = tmp.name
 
-    Parameters:
-    - implementation_script: str, bash commands to create/modify/delete files.
-    - execution_script: str, bash commands to run the implemented functionality.
-    - timeout: int, number of seconds to allow for each script before aborting.
+    # Make it executable
+    os.chmod(tmp_path, os.stat(tmp_path).st_mode | stat.S_IEXEC)
 
-    Returns:
-    - dict containing:
-        * 'implementation': {'stdout', 'stderr', 'error_type' or None}
-        * 'execution': {'stdout', 'stderr', 'error_type' or None}
-    """
-    def _run_script(script_content):
-        # Create a temp file for the script
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.sh') as tmp:
-            tmp.write(script_content.encode())
-            tmp_path = tmp.name
-
-        # Make it executable
-        os.chmod(tmp_path, os.stat(tmp_path).st_mode | stat.S_IEXEC)
-
-        try:
-            # Run script and capture output
-            result = subprocess.run(
-                [tmp_path],
-                input=b'',  # send EOF immediately if script expects input
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=timeout
-            )
-            return {
-                'stdout': result.stdout.decode(),
-                'stderr': result.stderr.decode(),
-                'error_type': None
-            }
-        except subprocess.TimeoutExpired as te:
-            return {
-                'stdout': te.stdout.decode() if te.stdout else '',
-                'stderr': te.stderr.decode() if te.stderr else '',
-                'error_type': 'timeout'
-            }
-        except Exception as e:
-            return {
-                'stdout': '',
-                'stderr': str(e),
-                'error_type': 'execution_error'
-            }
-        finally:
-            # Clean up script file
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-
-    report = {
-        'implementation': _run_script(implementation_script),
-        'execution': _run_script(execution_script)
-    }
-    return report
+    try:
+        # Run script and capture output
+        result = subprocess.run(
+            [tmp_path],
+            input=b'',  # send EOF immediately if script expects input
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout
+        )
+        return {
+            'stdout': result.stdout.decode(),
+            'stderr': result.stderr.decode(),
+            'error_type': None
+        }
+    except subprocess.TimeoutExpired as te:
+        return {
+            'stdout': te.stdout.decode() if te.stdout else '',
+            'stderr': te.stderr.decode() if te.stderr else '',
+            'error_type': 'timeout'
+        }
+    except Exception as e:
+        return {
+            'stdout': '',
+            'stderr': str(e),
+            'error_type': 'execution_error'
+        }
+    finally:
+        # Clean up script file
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)

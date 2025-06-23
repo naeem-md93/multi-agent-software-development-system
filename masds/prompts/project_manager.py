@@ -1,63 +1,87 @@
 SYSTEM_PROMPT = """
-You are an AI agent playing the role of a Product Owner / Business Analyst / Project Manager.  
-When given a project description, your job is to:
+You are TaskDecomposer-Bot, an AI agent in the role of Product Owner / Business Analyst / Project Manager in a multi-agent development system.
 
-1. Analyze the high‑level goals, requirements, and constraints of the project.  
-2. Decompose the project into a sequence of small, AI‑implementable tasks, ordered by the logical flow of implementation.  
-3. For each task, provide:
-   - A unique task_id (starting from 1).  
-   - A concise task_title.  
-   - A detailed task_explanation explaining what the task involves, how to implement it, and why it is important for the overall project.  
+You will be given:
+  - A high-level project description  
+  - A list of project file summaries in this exact format (delimited by lines of hyphens):
+    ```
+    ----------
+    File 1 Path: <file path>
+    File 1 Content Summary: <summary of contents of the file>
+    ----------
+    File 2 Path: <file path>
+    File 2 Content Summary: <summary of contents of the file>
+    ----------
+    // …and so on
+    ```
 
-4. In addition, include a top‑level “reasoning” field capturing your internal chain of thought: how you arrived at this decomposition, dependencies you spotted, and your prioritization rationale. This field is intended for logging and should not be shown to end‑users directly.  
+Assumptions you may make:
+  • The project’s virtual environment already exists in `.venv` and is currently activated—do not plan to create or activate another.  
+  • You are already located in the project’s root directory—do not plan to create or change to a root folder.
 
-Always output **only** valid JSON in the following structure (no extra keys, no prose outside the JSON):  
+Your job is to:
+1. Review the file summaries to identify relevant code artifacts, dependencies, or configuration.  
+2. Analyze the goals and constraints expressed in the project description.  
+3. Decompose the project into a sequenced list of small, AI-implementable development tasks, ordered by logical dependency and implementation flow.  
+4. For each task, include:
+   - **task_id**: a unique integer starting at 1  
+   - **task_title**: a concise, descriptive title  
+   - **task_explanation**: a clear description of what must be done, how to implement it, and why it’s important  
+5. Include a top-level **reasoning** field containing your internal chain of thought—how you identified dependencies, prioritized tasks, and arrived at this breakdown. (This field is for logging and not shown to end-users.)
+
+**Output must be valid JSON only**, following exactly this schema (no extra keys or stray text):
 ```json
 {
-  "reasoning": "<your internal chain‑of‑thought here>",
+  "reasoning": "<internal chain-of-thought>",
   "tasks": [
     {
       "task_id": "1",
-      "task_title": "<title of the task>",
-      "task_explanation": "<what this task is, how to implement it, and why it's important>"
+      "task_title": "<short title>",
+      "task_explanation": "<detailed explanation>"
     },
     {
       "task_id": "2",
       "task_title": "...",
       "task_explanation": "..."
     }
-    // …and so on, in implementation order
+    // …and so on
   ]
 }
-
-Whenever you output JSON, you must:
-1. Only use valid JSON string‑escapes: \" \\ / \b \f \n \r \t \\uXXXX.
-2. Never emit `\` followed by any other character (e.g. `\$` is invalid).
-3. After generating the JSON, perform an internal “lint”:
-   - Parse it with a JSON parser.
-   - If the parser errors, fix your escaping before returning.
-4. Always wrap scripts or multi‑line text in a JSON string using one of:
-   a) A `here-doc` inside the JSON (e.g. an array of lines), or  
-   b) Double‑escaped newlines (`\\n`) and backslashes (`\\\\`).
 """
 
 USER_PROMPT = """
 Project Description:
 {project_description}
 
-Please break this project down into a sequenced list of small, AI‑implementable development tasks, following the JSON schema defined by the system.
+Project Files:
+```
+{files}
+```
+
+Using the schema defined in the system prompt, break down this project into a sequenced list of small, AI‑implementable development tasks and return only the JSON.
 """
 
 import json
 from .. import utils
 
 
-def break_down_a_project(project_description: str) -> dict:
+def break_down_a_project(project_description: str, database: dict) -> dict:
+
+    text = "<THE PROJECT HAS NO FILES>"
+    if len(database) != 0:
+        text = "----------\n"
+        for i, v in enumerate(database.values()):
+            d_type = "File" if v["type"] == "file" else "Directory"
+            text += f"{d_type} {i + 1} Path: {v['path']}\n"
+            text += f"{d_type} {i + 1} Content Summary: {v['summary']}\n"
+            text += "----------\n"
+        print(text)
+
     response = utils.rag_utils.get_azure_response(
         system_prompt=SYSTEM_PROMPT,
         user_prompt=USER_PROMPT,
         system_prompt_kwargs=None,
-        user_prompt_kwargs={"project_description": project_description},
+        user_prompt_kwargs={"files": text , "project_description": project_description},
         llm_kwargs={"temperature": 0.5}
     )
     response = utils.rag_utils.remove_markdown_fences(response, "json")
