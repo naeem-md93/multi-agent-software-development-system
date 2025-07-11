@@ -20,7 +20,11 @@ def analysis_agent(state: ProjectState) -> ProjectState:
             "reasoning": "<your internal reasoning and chain of thoughts>",
                 "is_clear": "<boolean (true or false). whether the project descrition is clear for writing a PRD or not>",
                 "prd": "<PRD text if the project description is clear for writing a PRD. otherwise, leave it blank.>",
-                "questions": "<ask follow-up questions if the project description is not clear for writing a PRD. otherwise, leave it blank.>"
+                "questions": [ // list of questions
+                    "question 1",
+                    "question 2",
+                    ...
+                ] "<follow-up questions if the project description is not clear for writing a PRD. otherwise, leave it blank.>"
             }}
 
         Project Description:
@@ -44,7 +48,7 @@ def analysis_agent(state: ProjectState) -> ProjectState:
         is_clear = a_resp["is_clear"]
 
         if not is_clear:
-            u_resp = input(a_resp["questions"] + "\n")
+            u_resp = input(a_resp["questions"])
             messages.append({
                 "type": "user",
                 "answers": u_resp

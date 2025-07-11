@@ -3,9 +3,12 @@ import dotenv
 import logging
 from langchain_openai import AzureChatOpenAI
 
+from . import utils
+
 dotenv.load_dotenv()
 
 
+# Azure OpenAI Model
 LLM = AzureChatOpenAI(
     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
     api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
@@ -13,13 +16,6 @@ LLM = AzureChatOpenAI(
     model=os.getenv("AZURE_OPENAI_MODEL_NAME")
 )
 
-# Configure logging to show debug messages from all devagents modules
-logging.basicConfig(
-    level=logging.INFO,  # Use DEBUG for more verbosity
-    format='[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
 
-LOGGER = logging.getLogger(__name__)
+# DataBase
+DB = {} if not os.path.exists("./.ass_data/db.json") else utils.read_json_file("./.ass_data/db.json")
