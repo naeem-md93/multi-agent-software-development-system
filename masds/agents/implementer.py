@@ -1,9 +1,5 @@
-# -----------------------------
-# File: masds/agents/implementer.py
-# -----------------------------v
-
 PROMPT = """
-You are a software development expert.
+You are an experienced Software Developer in a Multi-Agent Software Development System.
 Given a PRD (Product Requirements Document), task title, task description, and a list of previous codes,
 your job is to implement the task based on its description and PRD. Your output **must** be a **valid JSON** 
 with two fields:
@@ -60,11 +56,15 @@ import tempfile
 import subprocess
 from tqdm import tqdm
 from typing_extensions import TypedDict
-from langchain_core.messages import HumanMessage
 
-from .. import constants as C
-from .. state import ProjectState
+from .. import constants as C, utils
 from .validator import validate_json_response
+
+
+class ImplementerState(TypedDict):
+    reasoning: str
+    implementation: str
+
 
 def execute_implementation(impl: str, timeout: int = 30):
     """
@@ -108,7 +108,7 @@ def execute_implementation(impl: str, timeout: int = 30):
             pass
 
 
-def implementation_agent(state: ProjectState) -> ProjectState:
+def implementation_agent(state):
 
     prev_impl = []
     tasks = state["planner"]["tasks"]
@@ -122,23 +122,16 @@ def implementation_agent(state: ProjectState) -> ProjectState:
 
         t.set_description_str(f"({idx + 1}/{len(tasks)})-{title}")
 
-        prompt_template = PROMPT.format(
+        prompt = copy.deepcopy(PROMPT)
+        prompt = prompt.format(
             prd=prd,
             title=title,
             description=description,
             prev_impl=prev_impl
         )
     
-        a_resp = C.LLM.invoke([HumanMessage(content=prompt_template)])
-        print("=============================")
-        print(f"Response: {vars(a_resp)}")
-        print("=============================")
-        
+        a_resp = C.LLM.invoke(prompt)
         a_resp = validate_json_response(a_resp.content)
-
-        print("==================================")
-        print(json.dumps(a_resp))
-        print("==================================")
 
         execute_implementation("\n".join(a_resp["implementation"]))
         
@@ -148,7 +141,6 @@ def implementation_agent(state: ProjectState) -> ProjectState:
         })
 
     result = copy.deepcopy(state)
-
-    result["implementer"] = a_resp
+    result["implementer"] = copy.deepcopy(a_resp)
 
     return result

@@ -1,6 +1,5 @@
 import os
 import dotenv
-import logging
 from langchain_openai import AzureChatOpenAI
 
 from . import utils
@@ -18,4 +17,4 @@ LLM = AzureChatOpenAI(
 
 
 # DataBase
-DB = {} if not os.path.exists("./.ass_data/db.json") else utils.read_json_file("./.ass_data/db.json")
+DB = {} if not os.path.exists("./.masds_cache/db.json") else utils.read_json_file("./.masds_cache/db.json")

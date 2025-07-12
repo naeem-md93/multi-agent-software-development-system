@@ -1,24 +1,10 @@
-# -----------------------------
-# File: devagents/state.py
-# -----------------------------
-from typing import TypedDict, List, Dict
+from typing_extensions import TypedDict
 
-
-class AnalyzerState(TypedDict):
-    reasoning: str
-    messages: List[Dict[str, str]]
-    prd: str
-    is_clear: bool = False
-
-
-class ImplementerState(TypedDict):
-    reasoning: str
-    implementation: str
-
-
-class PlannerState(TypedDict):
-    reasoning: str
-    tasks: List[Dict[str, str | int]]
+from .agents import (
+    AnalyzerState,
+    PlannerState,
+    ImplementerState
+)
 
 
 class ProjectState(TypedDict):

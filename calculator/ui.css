@@ -1,6 +1,0 @@
-/* CSS for the AI Coding Assistant interface */
-.sidebar { width: 20%; float: left; background: #f4f4f4; padding: 10px; }
-.chat-interface { width: 75%; float: right; background: #ffffff; padding: 10px; }
-#chat-history { height: 300px; overflow-y: scroll; border: 1px solid #ddd; padding: 5px; margin-bottom: 10px; }
-#chat-input { width: 80%; padding: 8px; }
-#send-message { padding: 8px; }

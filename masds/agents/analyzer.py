@@ -1,65 +1,66 @@
-import json
+PROMPT = """
+You are an experienced Product Manager in a Multi-Agent Software Development System.
+Your job is to read a project description and a list of previous conversations (if given).
+You should read the project description (and previous conversation) carefully and write a Product Requirement Document (PRD) if the project description in clear.
+Otherwise, you should ask follow-up questions to gather information for writing a PRD.
+ 
+your response should be exactly in this JSON format:
+{{
+"reasoning": "<your internal reasoning and chain of thoughts>",
+    "is_clear": "<boolean (true | false). whether the project description is clear for writing a PRD or not>",
+    "prd": "<PRD if you have all the necessary information. otherwise, leave it blank.>",
+    "questions": [ // list of follow-up questions if the project description is not clear for writing a PRD. otherwise, leave it blank.
+        "question 1",
+        "question 2",
+        ...
+    ] 
+}}
+
+Project Description:
+{description}
+
+Previous Messages:
+{messages}
+"""
+
+
+from typing_extensions import TypedDict, List, Dict
 import copy
-from typing import List, Annotated
-from typing_extensions import TypedDict
 
-from .. import constants as C
-from ..state import ProjectState
+from .. import constants as C, utils
 
 
-def analysis_agent(state: ProjectState) -> ProjectState:
+class AnalyzerState(TypedDict):
+    reasoning: str
+    messages: List[Dict[str, str]]
+    prd: str
+    is_clear: bool
+
+
+def analysis_agent(state):
     messages = []
     is_clear = False
     description = state["description"]
 
     while not is_clear:
-        prompt = f"""
-        You are an expert Software Developer.
-        Your job is to read a project description and a list of previous conversations. you should read the project description carefully and write a Product Requirement Document (PRD) if the project descrition in clear. Otherwise, you should ask follow-up questions from the user. your response should be exactly in this JSON format:
-        {{
-            "reasoning": "<your internal reasoning and chain of thoughts>",
-                "is_clear": "<boolean (true or false). whether the project descrition is clear for writing a PRD or not>",
-                "prd": "<PRD text if the project description is clear for writing a PRD. otherwise, leave it blank.>",
-                "questions": [ // list of questions
-                    "question 1",
-                    "question 2",
-                    ...
-                ] "<follow-up questions if the project description is not clear for writing a PRD. otherwise, leave it blank.>"
-            }}
-
-        Project Description:
-        {description}
-
-        Previous Messages:
-        {messages}
-        """
+        prompt = copy.deepcopy(PROMPT)
+        prompt = prompt.format(description=description, messages=messages)
 
         a_resp = C.LLM.invoke(prompt)
-        a_resp = a_resp.content.replace("```json", "").replace("```", "")
-        a_resp = json.loads(a_resp)
-        a_resp["is_clear"] = a_resp["is_clear"] in (True, "True", "true")
-        
-        messages.append({
-            "type": "assistant",
-            "questions": a_resp["questions"]
-        })
+        a_resp = utils.convert_response_to_json(a_resp)
 
-
+        a_resp["is_clear"] = a_resp["is_clear"] in (True, "True", "true", "1", 1)
         is_clear = a_resp["is_clear"]
 
         if not is_clear:
-            u_resp = input(a_resp["questions"])
-            messages.append({
-                "type": "user",
-                "answers": u_resp
-            })
+            for i, q in enumerate(a_resp["questions"]):
+                u_resp = input(f"({i+1}/{len(a_resp['questions'])}) | {q}")
+                messages.append({
+                    "assistant_question": q,
+                    "user_answer": u_resp
+                })
 
     result = copy.deepcopy(state)
-    result["analyzer"] = {
-        "reasoning": a_resp["reasoning"],
-        "messages": messages,
-        "prd": a_resp["prd"],
-        "is_clear": a_resp["is_clear"]
-    }
+    result["analyzer"] = copy.deepcopy(a_resp)
 
     return result

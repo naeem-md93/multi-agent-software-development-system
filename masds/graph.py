@@ -1,12 +1,11 @@
-# -----------------------------
-# File: devagents/graph.py
-# -----------------------------
 from langgraph.graph import StateGraph, END, START
 
 from .state import ProjectState
-from .agents.analyzer import analysis_agent
-from .agents.planner import planning_agent
-from .agents.implementer import implementation_agent
+from .agents import (
+    analysis_agent,
+    implementation_agent,
+    planning_agent
+)
 
 
 def build_graph():

@@ -1,3 +1,5 @@
+import copy
+
 PROMPT = """
 You are an expert JSON fixer specialized in converting malformed JSON strings into valid JSON without altering the original content beyond what’s necessary to correct syntax errors.
 
@@ -29,31 +31,20 @@ Your Response:
 """
 
 
-import json
+from typing_extensions import Dict, Any
 from json.decoder import JSONDecodeError
 
-from .. import constants as C
+from .. import constants as C, utils
 
 
-def validate_json_response(resp: str) -> str:
-    resp = resp.replace("```json", "").replace("```", "")
-    
-    print("================================")
-    print(resp)
-    print("================================")
+def validate_json_response(resp: str) -> Dict[str, Any]:
 
     try:
-        result = json.loads(resp)
-        return result
+        return utils.convert_response_to_json(resp)
 
-    except JSONDecodeError as e:
-        print("####################################")
-        print(vars(e))
-        print("####################################")
-
-        resp = C.LLM.invoke(PROMPT.format(
-            json_string=resp,
-            json_error=str(vars(e))
-        ))
+    except Exception as e:
+        prompt = copy.deepcopy(PROMPT)
+        prompt = prompt.format(json_string=resp, json_error=str(vars(e)))
+        resp = C.LLM.invoke(prompt)
         return validate_json_response(resp.content)
 
